@@ -1,7 +1,7 @@
 {
   "name": "Ajax Interceptor JD",
   "version": "0.0.0.1",
-  "description": "To modify response text of ajax requests",
+  "description": "修改ajax请求的响应文本工具",
   "permissions": [
     "storage",
     "tabs"
