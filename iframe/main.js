@@ -1,6 +1,6 @@
 import React, {Component} from 'react';
 import 'antd/dist/antd.css';
-import {Switch, Collapse, Input, Select, Button, Badge, Tooltip} from 'antd';
+import {Switch, Collapse, Input, Select, Button, Badge, Tooltip, Form,Radio, Divider,Icon } from 'antd';
 const Panel = Collapse.Panel;
 
 import Replacer from './Replacer';
@@ -53,6 +53,9 @@ export default class Main extends Component {
 
   state = {
     interceptedRequests: {},
+    showSetting: false, // 默认不显示设置
+    modeType: window.setting.ajaxInterceptor_modeType,
+    rulesList: []
   }
 
   componentDidMount() {
@@ -121,6 +124,7 @@ export default class Main extends Component {
     this.forceUpdateDebouce();
   }
 
+  // 添加规则
   handleClickAdd = () => {
     window.setting.ajaxInterceptor_rules.push({match: '', label: `url${window.setting.ajaxInterceptor_rules.length + 1}`, switchOn: true, key: buildUUID()});
     this.forceUpdate(this.updateAddBtnTop_interval);
@@ -152,16 +156,74 @@ export default class Main extends Component {
     this.set('ajaxInterceptor_switchOn', window.setting.ajaxInterceptor_switchOn);
 
     this.forceUpdate();
+
+    if(!window.setting.ajaxInterceptor_switchOn){
+      this.apply()
+    }
+  }
+  // 应用当前配置， 刷新页面
+  apply = () => {
+    chrome.tabs.reload()
+  }
+
+  // 控制设置模块显示与影藏
+  toggleShowSet = ()=>{
+    this.setState({ showSetting: !this.state.showSetting })
+  }
+
+  changeModeType = (e)=>{
+    console.log('radio checked', e.target.value);
+    chrome.storage && chrome.storage.local.set({['ajaxInterceptor_modeType']: e.target.value});
+    this.setState({ modeType: e.target.value })
+  }
+
+  handleClearAllRules = ()=>{
+    window.setting.ajaxInterceptor_rules = [];
+    this.forceUpdate(this.updateAddBtnTop_interval);
+  }
+
+  // handleStopAllRules = ()=>{
+  //   window.setting.ajaxInterceptor_rules = window.setting.ajaxInterceptor_rules.map((item)=>{
+  //     item.switchOn = false;
+  //     return { ...item }
+  //   })
+  //   this.set('ajaxInterceptor_rules', window.setting.ajaxInterceptor_rules);
+    
+  //   // 这么搞主要是为了能实时同步window.setting.ajaxInterceptor_rules，并且让性能好一点
+  //   this.forceUpdateDebouce();
+  // }
+
+  handleCreateFiveRules = ()=>{
+    for(let i=0;i< 5;i++){
+      this.handleClickAdd()
+    }
   }
 
   render() {
     return (
       <div className="main">
-        <Switch
-          style={{zIndex: 10}}
-          defaultChecked={window.setting.ajaxInterceptor_switchOn}
-          onChange={this.handleSwitchChange}
-        />
+        {/* 头部模块 */}
+        <div className="header">
+          <Switch
+            style={{zIndex: 10}}
+            defaultChecked={window.setting.ajaxInterceptor_switchOn}
+            onChange={this.handleSwitchChange}
+            checkedChildren="开启" 
+            unCheckedChildren="关闭"
+          />
+          <span 
+            className="header-title"
+            onClick={this.toggleShowSet}
+          >ajax-interceptor-jd</span>
+          <Button
+            type="primary"
+            size="small"
+            onClick={this.apply}
+            disabled={!window.setting.ajaxInterceptor_switchOn}
+          >应用<Icon type="forward" /></Button>
+        </div>
+
+        {/* 手动添加rule */}
         <div className={window.setting.ajaxInterceptor_switchOn ? 'settingBody' : 'settingBody settingBody-hidden'}>
           {window.setting.ajaxInterceptor_rules && window.setting.ajaxInterceptor_rules.length > 0 ? (
             <div ref={ref => this.collapseWrapperRef = ref}>
@@ -176,18 +238,24 @@ export default class Main extends Component {
                     header={
                       <div className="panel-header" onClick={e => e.stopPropagation()}>
                         <Input.Group compact style={{width: '78%'}}>
+                          {/* 匹配规则名 */}
+                          { this.state.modeType === "comb" ? (
                           <Input 
                             placeholder="name"
                             style={{width: '21%'}}
                             defaultValue={label}
-                            onChange={e => this.handleLabelChange(e, i)}/>
+                            onChange={e => this.handleLabelChange(e, i)}/>) 
+                            : null }
+                          {/* 选择模式：普通和正则 */}
+                          { this.state.modeType === "comb" ? (
                           <Select defaultValue={filterType} style={{width: '30%'}} onChange={e => this.handleFilterTypeChange(e, i)}>
                             <Option value="normal">normal</Option>
                             <Option value="regex">regex</Option>
-                          </Select>
+                          </Select>) : null }
+                          {/* 请求url */}
                           <Input
                             placeholder={filterType === 'normal' ? 'eg: abc/get' : 'eg: abc.*'}
-                            style={{width: '49%'}}
+                            style={ this.state.modeType === "comb" ? {width: '49%'} : {width: '100%'}}
                             defaultValue={match}
                             // onClick={e => e.stopPropagation()}
                             onChange={e => this.handleMatchChange(e, i)}
@@ -275,6 +343,27 @@ export default class Main extends Component {
             />
           </div>
         </div>
+
+        {/* 设置模块 */}
+        { this.state.showSetting ? (
+        <div className={ this.state.showSetting ? "setting" : "setting setting-display"  }>
+          <Divider>设置</Divider>
+          <div className="setting-item">
+            <span className="setting-item-title">模式选择：</span>
+            <Radio.Group defaultValue={window.setting.ajaxInterceptor_modeType} onChange={this.changeModeType}>
+              <Radio value="simple">简易</Radio>
+              <Radio value="comb">组合</Radio>
+            </Radio.Group>
+          </div>
+          <div className="setting-item">
+            <span className="setting-item-title">批量操作：</span>
+            <Button.Group size="small">
+              <Button onClick={this.handleClearAllRules}>clear<Icon type="close-square" /></Button>
+              {/* <Button onClick={this.handleStopAllRules}>disable<Icon type="stop" /></Button> */}
+              <Button onClick={this.handleCreateFiveRules}>create<Icon type="plus-square" /></Button>
+            </Button.Group>
+          </div>
+        </div>): <div/> }
       </div>
     );
   }

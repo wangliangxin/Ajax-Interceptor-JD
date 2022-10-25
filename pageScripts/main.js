@@ -8,9 +8,10 @@ let ajax_interceptor_jd = {
   originalXHR: window.XMLHttpRequest,
   myXHR: function() {
     let pageScriptEventDispatched = false;
+    // 修改响应
     const modifyResponse = () => {
       ajax_interceptor_jd.settings.ajaxInterceptor_rules.forEach(({filterType = 'normal', switchOn = true, match, overrideTxt = ''}) => {
-        let matched = false;
+        let matched = false;  // 匹配
         if (switchOn && match) {
           if (filterType === 'normal' && this.responseURL.indexOf(match) > -1) {
             matched = true;
